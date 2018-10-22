@@ -1,12 +1,14 @@
 from __future__ import print_function, absolute_import, division
 
 import logging
+from getpass import getpass
 
 from collections import defaultdict
 from errno import ENOENT
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 from sys import argv, exit
 from time import time
+
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
@@ -17,7 +19,7 @@ if not hasattr(__builtins__, 'bytes'):
 
 auth = {
     'login': raw_input('Nome utente: '),
-    'password': raw_input('Password: ')
+    'password': getpass('Password: ')
 }
 cidReq = '9114'     # Corso di Sistemi Operativi
 url = 'http://studium.unict.it/dokeos/2018/main/'
