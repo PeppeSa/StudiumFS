@@ -1,6 +1,10 @@
 import bs4
 import requests
+import sys
 from HTMLParser import HTMLParser
+
+reload(sys)
+sys.setdefaultencoding('utf8')
 
 class MyHTMLParser(HTMLParser):
     def __init__(self):
@@ -13,7 +17,7 @@ class MyHTMLParser(HTMLParser):
 class FileManager():
     def get_file(self, url, session):   # Recupera un singolo annuncio
         pageText = session.get(url)
-        title = bs4.BeautifulSoup(pageText.text, 'html.parser').find(class_='announcement_title').string.encode('utf-8')
+        title = bs4.BeautifulSoup(pageText.text, 'html.parser').find(class_='announcement_title').string
         announcementBS4 = bs4.BeautifulSoup(pageText.text, 'html.parser').find(class_='announcement_content').contents
         announcement = ''
         for s in announcementBS4:
@@ -33,17 +37,13 @@ class FileManager():
                     lista_files.append(self.get_file(url + x.get('href'), session))
             return lista_files
 
+    def get_teachings(self): # Codice statico temporaneo
+        combo = [{'name': 'Sistemi Operativi', 'cid': '9114'}, {'name': 'Elementi di Analisi Matematica M-Z', 'cid': '9111'}]
+        return combo
+
 if __name__ == '__main__':
     url = 'http://studium.unict.it/dokeos/2018/main/'
     auth = {
         'login': raw_input('Nome utente: '),
-        'password': raw_input('Password: ')
+        'password': getpass('Password: ')
     }
-    # category = 'D251' # Dipartimento Matematica e Informatica
-    category = '285'    # CdL Informatica
-    cidReq = '9114'     # Corso di Sistemi Operativi
-    urlAnnouncements = url + 'announcements/'
-    urlDepartment = url + 'index.php'
-    urlCourse = url + 'courses/' + cidReq
-    urlDescription = url + 'courses_description/'
-    print(FileManager().get_file(urlAnnouncements, auth, cidReq))
