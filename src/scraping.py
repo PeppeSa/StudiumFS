@@ -38,7 +38,6 @@ class FileManager():
         return lista_files
 	
     def get_departments(self, url, auth, session): # Recupera il nome delle cartelle relative ai dipartimenti
-        session.post(url, data=auth)
         pageText = session.get(url)
         list = bs4.BeautifulSoup(pageText.text, 'html.parser').find(class_='home_cats').find('ul').find_all('a')
         degreeCourses = []
@@ -56,13 +55,15 @@ class FileManager():
         return degreeCourses
 
     def get_teachings(self, url, auth, category, session): # Recupera nome e codice di una materia
-        session.post(url, data=auth)
         pageText = session.get(url + 'index.php?category=' + str(category))
         list = bs4.BeautifulSoup(pageText.text, 'html.parser').find(class_='home_cats').find('ul').find_all('a')
         teachings = []
         for x in list:
             teachings.append(dict(name = x.text, cid = x.get('href').split('/')[-2].split('=')[-1]))
         return teachings
+
+    def get_errors(self, url, auth, category, session):
+        print('\nC\'e\' qualquadra che non cosa...')
 
 if __name__ == '__main__':
     url = 'http://studium.unict.it/dokeos/2018/'

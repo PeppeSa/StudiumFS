@@ -26,52 +26,27 @@ auth = {
     'password': getpass('Password: ')
 }
 url = 'http://studium.unict.it/dokeos/2018/'
+switch = {
+    2: 'degreeCourse',
+    3: 'teaching',
+    4: 'file'
+}
 
 class Memory(LoggingMixIn, Operations):
 
     def __init__(self): # Crea file e cartelle appena viene montato il VFS... La cartella 24 CFU e' particolare e va trattata a parte
         with requests.Session() as session:
-            self.departments = FileManager().get_departments(url, auth, session)
             session.post(url, data=auth)
+            self.departments = FileManager().get_departments(url, auth, session)
             self.files = {}
             self.data = defaultdict(bytes)
             self.fd = 0
+            self.cids = {}
             now = time()
             self.files['/'] = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=3)
             for department in self.departments:
                 self.files['/' + department['name']] = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=3)
-                degreeCourses = FileManager().get_degreeCourses(url, auth, department['cid'], session)
-                for degreeCourse in degreeCourses:
-                    self.files['/' + department['name'] + '/' + degreeCourse['name']] = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=3)
-                    teachings = FileManager().get_teachings(url, auth, degreeCourse['cid'], session)
-                    for teaching in teachings:
-                        self.files['/' + department['name'] + '/' + degreeCourse['name'] + '/' + teaching['name']] = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=2)
-                        files_array = FileManager().get_files(url, auth, teaching['cid'], session)
-                        c = 1
-                        for f in files_array:
-                            title = f['title']
-                            if '/' + department['name'] + '/' + degreeCourse['name'] + '/' + teaching['name'] + '/' + title in self.files:
-                                title += '(' + str(c) + ')'
-                                c += 1
-                            self.files['/' + department['name'] + '/' + degreeCourse['name'] + '/' + teaching['name'] + '/' + title] = dict(st_mode=(S_IFREG | 0o444), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=1, st_size=len(f['text']))
-                            self.data['/' + department['name'] + '/' + degreeCourse['name'] + '/' + teaching['name'] + '/' + title] = f['text']
-                            self.fd += 1
-            department = dict(name='CORSI 24 CFU', cid='24CFU')
-            self.departments += [department]
-            self.files['/' + department['name']] = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=3)
-            teachings = FileManager().get_teachings(url, auth, department['cid'], session)
-            for teaching in teachings:
-                self.files['/' + department['name'] + '/' + teaching['name']] = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=2)
-                files_array = FileManager().get_files(url, auth, teaching['cid'], session)
-                c = 1
-                for f in files_array:
-                    title = f['title']
-                    if '/' + department['name'] + '/' + teaching['name'] + '/' + title in self.files:
-                        title += '(' + str(c) + ')'
-                        c += 1
-                    self.files['/' + department['name'] + '/' + teaching['name'] + '/' + title] = dict(st_mode=(S_IFREG | 0o444), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=1, st_size=len(f['text']))
-                    self.data['/' + department['name'] + '/' + teaching['name'] + '/' + title] = f['text']
-                    self.fd += 1
+                self.cids['/' + department['name']] = department['cid']
 
     def getattr(self, path, fh=None):
         if path not in self.files:
@@ -87,10 +62,26 @@ class Memory(LoggingMixIn, Operations):
 
     def readdir(self, path, fh):
         list = ['.', '..']
+        now = time()
         if path != '/':
+            if path + '/' not in self.files:
+                with requests.Session() as session:
+                    session.post(url, data=auth)
+                    switchIndex = len(path.split('/'))
+                    func_name = switch.get(switchIndex, 'error')
+                    result = getattr(FileManager(), 'get_' + func_name + 's')(url, auth, self.cids[path], session)
+                    for ris in result:
+                        if func_name is 'file':
+                            self.files[path + '/' + ris['title']] = dict(st_mode=(S_IFREG | 0o444), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=1, st_size=len(ris['text']))
+                            self.data[path + '/' + ris['title']] = ris['text']
+                        else:
+                            self.files[path + '/' + ris['name']] = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=3)
+                            self.cids[path + '/' + ris['name']] = ris['cid']
+        
             for filePath in self.files:
-                fileName = filePath.split('/')[-1]
                 if str(path) in str(filePath):
+                    print('\nfilePath: ' + filePath)
+                    fileName = filePath.split('/')[-1]
                     list += [fileName]
         else:
             for department in self.departments:
