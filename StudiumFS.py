@@ -34,7 +34,7 @@ switch = {
 
 class Memory(LoggingMixIn, Operations):
 
-    def __init__(self): # Crea file e cartelle appena viene montato il VFS... La cartella 24 CFU e' particolare e va trattata a parte
+    def __init__(self):
         with requests.Session() as session:
             session.post(url, data=auth)
             self.departments = FileManager().get_departments(url, auth, session)
@@ -64,20 +64,29 @@ class Memory(LoggingMixIn, Operations):
         list = ['.', '..']
         now = time()
         if path != '/':
-            if path + '/' not in self.files:
+            if path + '/' not in str(self.files):
                 with requests.Session() as session:
                     session.post(url, data=auth)
                     switchIndex = len(path.split('/'))
                     func_name = switch.get(switchIndex, 'error')
                     result = getattr(FileManager(), 'get_' + func_name + 's')(url, auth, self.cids[path], session)
+                    c = 1
                     for ris in result:
                         if func_name is 'file':
-                            self.files[path + '/' + ris['title']] = dict(st_mode=(S_IFREG | 0o444), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=1, st_size=len(ris['text']))
-                            self.data[path + '/' + ris['title']] = ris['text']
+                            myPath = path + '/' + ris['title']
+                            if myPath in self.files:
+                                myPath += '(' + str(c) + ')'
+                                c += 1
+                            self.files[myPath] = dict(st_mode=(S_IFREG | 0o444), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=1, st_size=len(ris['text']))
+                            self.data[myPath] = ris['text']
                         else:
-                            self.files[path + '/' + ris['name']] = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=3)
-                            self.cids[path + '/' + ris['name']] = ris['cid']
-        
+                            myPath = path + '/' + ris['name']
+                            if myPath in self.files:
+                                myPath += '(' + str(c) + ')'
+                                c += 1
+                            self.files[myPath] = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now, st_mtime=now, st_atime=now, st_nlink=3)
+                            self.cids[myPath] = ris['cid']
+
             for filePath in self.files:
                 if str(path) in str(filePath):
                     print('\nfilePath: ' + filePath)
