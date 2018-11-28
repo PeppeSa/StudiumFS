@@ -15,7 +15,7 @@ class MyHTMLParser(HTMLParser):
 
 class FileManager():
 
-    def get_file(self, url, session):   # Recupera i dati di un singolo annuncio
+    def get_announcement(self, url, session):   # Recupera i dati di un singolo annuncio
         pageText = session.get(url)
         title = bs4.BeautifulSoup(pageText.text, 'html.parser').find(class_='announcement_title').string
         announcementBS4 = bs4.BeautifulSoup(pageText.text, 'html.parser').find(class_='announcement_content').contents
@@ -24,17 +24,17 @@ class FileManager():
             announcement += s.encode('utf-8')
         parser = MyHTMLParser()
         parser.feed(announcement)
-        return dict(title=title, text=parser.data)
+        return dict(title=title, text=parser.data, ann_id=url.split('=')[-1])
 
-    def get_files(self, url, auth, cidReq, session): # Recupera tutti gli annunci di una materia
+    def get_announcements(self, url, auth, cidReq, session): # Recupera tutti gli annunci di una materia
         localUrl = 'main/announcements/'
-        session.post(url + localUrl + 'announcements.php', data=auth)
+        session.post(url + localUrl + 'announcements.php', auth=auth)
         pageText = session.get(url + localUrl + 'announcements.php?cidReq=' + cidReq)
         list = bs4.BeautifulSoup(pageText.text, 'html.parser').find_all('a')
         lista_files = []
         for x in list:
             if(x.get('href') and x.get('title')):
-                lista_files.append(self.get_file(url + localUrl + x.get('href'), session))
+                lista_files.append(self.get_announcement(url + localUrl + x.get('href'), session))
         return lista_files
 	
     def get_departments(self, url, auth, session): # Recupera il nome delle cartelle relative ai dipartimenti
@@ -64,6 +64,51 @@ class FileManager():
 
     def get_errors(self, url, auth, category, session):
         print('\nC\'e\' qualquadra che non cosa...')
+
+    def create_announcement(self, url, category, session, title, auth):
+        localUrl = 'main/announcements/announcements.php'
+        form = {
+            'login': auth[0],
+            'password': auth[1],
+            'title': title,
+            'content': '',
+            'submit_announcement': '',
+            '_qf__announcement_form': ''
+        }
+        params = {
+            'cidReq': category,
+            'action': 'add'
+        }
+        headers = { 'Content-Type': 'application/x-www-form-urlencoded' }
+        return session.post(url + localUrl, params=params, data=form, headers=headers)
+        
+    def update_announcement(self, url, category, session, content, id, title, auth):
+        localUrl = 'main/announcements/announcements.php'
+        form = {
+            'login': auth[0],
+            'password': auth[1],
+            'title': title,
+            'content': content,
+            'submit_announcement': '',
+            '_qf__announcement_form': '',
+            'announcement_id': id
+        }
+        params = {
+            'cidReq': category,
+            'action': 'edit',
+            'id': id
+        }
+        headers = { 'Content-Type': 'application/x-www-form-urlencoded' }
+        return session.post(url + localUrl, params=params, data=form, headers=headers)
+        
+    def delete_announcement(self, url, category, session, id):
+        localUrl = 'main/announcements/announcements.php'
+        params = {
+            'cidReq': category,
+            'action': 'delete',
+            'id': id
+        }
+        return session.get(url + localUrl, params=params)
 
 if __name__ == '__main__':
     url = 'http://studium.unict.it/dokeos/2018/'
